@@ -1,0 +1,35 @@
+from flask import Blueprint, request, jsonify
+from pydantic import ValidationError
+from .models import {{ endpoint.model_name }}
+
+api_bp = Blueprint('api', __name__)
+
+@api_bp.route("{{ endpoint.path }}", methods=["{{ endpoint.method | upper }}"])
+def handle_request():
+    """
+    Handles the {{ endpoint.method | upper }} request for {{ endpoint.path }}.
+    """
+    if request.method == 'POST' or request.method == 'PUT':
+        try:
+            # Validate request body
+            data = {{ endpoint.model_name }}(**request.get_json())
+        except ValidationError as e:
+            return jsonify(e.errors()), 400
+        except Exception:
+            return jsonify({"error": "Invalid JSON"}), 400
+            
+        # --- YOUR BUSINESS LOGIC HERE ---
+        # Example: print validated data
+        print("Received valid data:", data.model_dump_json())
+
+        # TODO: Implement storage logic if required
+        
+        return jsonify({"message": "Data received successfully!", "data": data.model_dump()}), 200
+
+    elif request.method == 'GET':
+        # --- YOUR BUSINESS LOGIC HERE ---
+        # Example: return static data
+        response_data = {"message": "Hello from your generated API!"}
+        return jsonify(response_data), 200
+
+    return jsonify({"error": "Method Not Allowed"}), 405

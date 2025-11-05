@@ -1,0 +1,33 @@
+steps:
+  # Step 1: Build the container image, tagging it with the unique Git Commit SHA
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', '${_GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}', '.']
+
+  # Step 2: Push the uniquely tagged image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}']
+
+  # Step 3: Deploy this specific image version to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      gcloud run deploy '${_SERVICE_NAME}' \
+        --image '${_GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}' \
+        --region '${_GCP_REGION}' \
+        --platform 'managed' \
+        --allow-unauthenticated \
+        --project '${PROJECT_ID}' \
+        --update-secrets=GEMINI_API_KEY=gemini-api-key:latest \
+        --set-env-vars="^#^GCP_PROJECT_ID=${PROJECT_ID}#GCP_REGION=${_GCP_REGION}#GCP_SOURCE_BUCKET_NAME=${_GCP_SOURCE_BUCKET_NAME}#FIRESTORE_SERVICES_COLLECTION=services#CORS_ORIGINS=http://localhost:5173,https://*.vercel.app"
+
+# These substitutions are safe to commit
+substitutions:
+  _SERVICE_NAME: 'api-architect-core'
+  _GCP_REGION: 'us-central1'
+  _REPOSITORY: 'api-architect-repo'
+  _GCP_SOURCE_BUCKET_NAME: 'api-architect-source-code'
+
+images:
+  - '${_GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'

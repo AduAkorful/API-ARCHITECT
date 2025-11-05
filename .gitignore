@@ -1,0 +1,7 @@
+# Root gitignore for workspace
+# Ignore local Python virtual environments
+.venv
+venv/
+env/
+
+ # You can add more global ignores here (node_modules, .env, etc.) if desired

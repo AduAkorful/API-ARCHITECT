@@ -1,0 +1,10 @@
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+
+# Pydantic models are defined here based on the spec
+# This provides automatic request body validation
+
+class {{ endpoint.model_name }}(BaseModel):
+    {% for field in endpoint.schema_fields %}
+    {{ field.name }}: {{ field.type }}{% if not field.required %} = None{% endif %}
+    {% endfor %}
