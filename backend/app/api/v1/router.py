@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-# --- CORRECTED IMPORT (no 'backend.') ---
 from app.api.v1.endpoints import services
 
 api_router = APIRouter()

@@ -11,16 +11,17 @@ cloudbuild_client = cloudbuild_v1.CloudBuildClient()
 async def save_service_metadata(metadata: ServiceMetadata):
     """Saves or updates service metadata in Firestore."""
     doc_ref = db.collection(settings.FIRESTORE_SERVICES_COLLECTION).document(metadata.id)
-    # Use the modern .model_dump() for Pydantic v2
     await doc_ref.set(metadata.model_dump())
 
 def upload_source_to_gcs(source_zip_path: str, destination_blob_name: str) -> str:
+    """Uploads the zipped source code to Google Cloud Storage."""
     bucket = storage_client.bucket(settings.GCP_SOURCE_BUCKET_NAME)
     blob = bucket.blob(destination_blob_name)
     blob.upload_from_filename(source_zip_path)
     return f"gs://{settings.GCP_SOURCE_BUCKET_NAME}/{destination_blob_name}"
 
 def trigger_cloud_build(gcs_source_uri: str, service_name: str) -> str:
+    """Triggers a Cloud Build job to build and deploy the service."""
     project_id = settings.GCP_PROJECT_ID
     build = cloudbuild_v1.Build()
     source_object = gcs_source_uri.split(f"gs://{settings.GCP_SOURCE_BUCKET_NAME}/")[-1]

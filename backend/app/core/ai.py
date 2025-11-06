@@ -1,12 +1,11 @@
 import google.generativeai as genai
 import json
-from backend.app.core.config import settings
+from app.core.config import settings
 
 # Configure the Gemini API client
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
 # --- The System Prompt ---
-# (This remains unchanged)
 SYSTEM_PROMPT = """
 You are "API Architect," an expert at converting natural language into a structured JSON representation for a simple REST API microservice. Your sole purpose is to generate a JSON object that conforms to the rules below. You must not add any commentary or introductory text. Only the JSON object is allowed.
 
@@ -37,8 +36,6 @@ def generate_spec_from_prompt(prompt: str) -> dict:
     """
     try:
         model = genai.GenerativeModel(
-            # --- THE DEFINITIVE FIX ---
-            # Use the exact model name confirmed by our diagnostic script.
             model_name='models/gemini-pro-latest',
             system_instruction=SYSTEM_PROMPT
         )
@@ -51,7 +48,6 @@ def generate_spec_from_prompt(prompt: str) -> dict:
 
         spec = json.loads(cleaned_response)
         return spec
-
     except json.JSONDecodeError:
         raise ValueError(f"Failed to decode JSON from the AI model's response. Raw response: '{response.text}'")
     except Exception as e:

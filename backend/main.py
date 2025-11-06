@@ -3,13 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
 
-app = FastAPI(
-    title="API Architect Core",
-    description="Backend service to generate and deploy microservices.",
-    version="0.1.0"
-)
+app = FastAPI(title="API Architect Core", version="0.1.0")
 
-# CORS Middleware Setup
 if settings.CORS_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
@@ -21,9 +16,6 @@ if settings.CORS_ORIGINS:
 
 @app.get("/", tags=["Health Check"])
 def read_root():
-    """A simple health check endpoint."""
-    return {"status": "ok", "message": "API Architect Core is running!"}
+    return {"status": "ok"}
 
-
-# Include the API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
