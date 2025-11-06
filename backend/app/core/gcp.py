@@ -1,7 +1,7 @@
 from google.cloud import firestore, storage
 from google.cloud.devtools import cloudbuild_v1
-from backend.app.core.config import settings
-from backend.app.models.service import ServiceMetadata
+from app.core.config import settings
+from app.models.service import ServiceMetadata
 from datetime import datetime
 
 db = firestore.AsyncClient(project=settings.GCP_PROJECT_ID)

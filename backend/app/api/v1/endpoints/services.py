@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException, status, Body
 from typing import Dict, Any, List
 import os
 import re
-from backend.app.core import gcp, generation, ai
-from backend.app.core.config import settings
-from backend.app.models.service import ServiceMetadata, ServiceStatus
+from app.core import gcp, generation, ai
+from app.core.config import settings
+from app.models.service import ServiceMetadata, ServiceStatus
 from google.cloud import run_v2
 
 router = APIRouter()
