@@ -5,7 +5,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import LoginPage from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import Header from './components/layout/Header';
+import MainLayout from './components/layout/MainLayout'; // Import the new layout
 
 const queryClient = new QueryClient();
 
@@ -21,13 +21,13 @@ function App() {
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <Header />
-                    <main className="flex-grow container mx-auto px-4 py-8">
-                      <Dashboard />
-                    </main>
+                    <MainLayout />
                   </ProtectedRoute>
                 }
-              />
+              >
+                {/* Dashboard is now a child route of the MainLayout */}
+                <Route index element={<Dashboard />} />
+              </Route>
             </Routes>
           </div>
         </BrowserRouter>
