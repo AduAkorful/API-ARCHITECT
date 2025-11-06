@@ -2,26 +2,36 @@ steps:
   # Step 1: Build the container image.
   - name: 'gcr.io/cloud-builders/docker'
     dir: 'backend'
-    args: ['build', '-t', '${_GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}', '.']
+    args: ['build', '-t', '${_GCR_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}', '.']
 
   # Step 2: Push the image.
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', '${_GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}']
+    args: ['push', '${_GCR_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}']
 
-  # Step 3: Deploy to Cloud Run.
+  # Step 3: Deploy to Cloud Run using a simplified, direct command.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'bash'
+    entrypoint: gcloud
     args:
-    - '-c'
-    - |
-      gcloud run deploy '${_SERVICE_NAME}' \
-        --image '${_GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}' \
-        --region '${_GCP_REGION}' \
-        --platform 'managed' \
-        --allow-unauthenticated \
-        --project '${PROJECT_ID}' \
-        --update-secrets=GEMINI_API_KEY=gemini-api-key:latest \
-        --set-env-vars="^#^GCP_PROJECT_ID=${PROJECT_ID}#GCP_REGION=${_GCP_REGION}#GCP_SOURCE_BUCKET_NAME=${_GCP_SOURCE_BUCKET_NAME}#FIRESTORE_SERVICES_COLLECTION=services#CORS_ORIGINS=http://localhost:5173,https://api-architect.vercel.app"
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--image'
+      - '${_GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+      - '--region'
+      - '${_GCP_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--project'
+      - '${PROJECT_ID}'
+      - '--update-secrets=GEMINI_API_KEY=gemini-api-key:latest'
+      # --- SIMPLIFIED ENV VARS ---
+      # We provide each variable with its own flag. This is the most robust method.
+      - '--set-env-vars=GCP_PROJECT_ID=${PROJECT_ID}'
+      - '--set-env-vars=GCP_REGION=${_GCP_REGION}'
+      - '--set-env-vars=GCP_SOURCE_BUCKET_NAME=${_GCP_SOURCE_BUCKET_NAME}'
+      - '--set-env-vars=FIRESTORE_SERVICES_COLLECTION=services'
+      - '--set-env-vars=CORS_ORIGINS=http://localhost:5173,https://api-architect.vercel.app'
 
 options:
   logging: CLOUD_LOGGING_ONLY
