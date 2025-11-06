@@ -15,23 +15,23 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ServiceMetadata } from '@/types'; // Import the type
+import { ServiceMetadata } from '@/types';
 
 const CreateServiceDialog = () => {
+  const [isOpen, setIsOpen] = useState(false); // <-- Control the dialog state manually
   const [prompt, setPrompt] = useState('');
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: generateService,
-    // --- OPTIMISTIC UPDATE LOGIC ---
     onSuccess: (newService) => {
       toast.success('API generation started!');
-      // Manually add the new service to the cache immediately
-      queryClient.setQueryData<ServiceMetadata[]>(['services'], (oldData) => {
-        return oldData ? [newService, ...oldData] : [newService];
+      queryClient.setQueryData<ServiceMetadata[]>(['services'], (oldData = []) => {
+        // Ensure oldData is an array before spreading
+        return [newService, ...oldData];
       });
       setPrompt('');
-      // We don't need to invalidate, because the polling will handle the final state.
+      setIsOpen(false); // <-- Close the dialog on success
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to start generation.');
@@ -46,7 +46,7 @@ const CreateServiceDialog = () => {
   };
 
   return (
-    <Dialog onOpenChange={(isOpen) => { if (!isOpen) mutation.reset(); }}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button>
           <PlusCircle className="w-4 h-4 mr-2" />
@@ -57,7 +57,7 @@ const CreateServiceDialog = () => {
         <DialogHeader>
           <DialogTitle>Create New API Service</DialogTitle>
           <DialogDescription>
-            Describe the API you want to build.
+            Describe the API you want to build. Be specific about endpoints, methods, and data schemas.
           </DialogDescription>
         </DialogHeader>
         <form id="create-service-form" onSubmit={handleSubmit}>
@@ -76,7 +76,7 @@ const CreateServiceDialog = () => {
          <DialogFooter>
             <Button
               type="submit"
-              form="create-service-form" // Link button to the form
+              form="create-service-form"
               disabled={mutation.isLoading || !prompt.trim()}
             >
               {mutation.isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Generate API'}
