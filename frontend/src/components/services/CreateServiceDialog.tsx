@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { ServiceMetadata } from '@/types'; // Import the type
 
 const CreateServiceDialog = () => {
   const [prompt, setPrompt] = useState('');
@@ -22,11 +23,15 @@ const CreateServiceDialog = () => {
 
   const mutation = useMutation({
     mutationFn: generateService,
-    onSuccess: () => {
+    // --- OPTIMISTIC UPDATE LOGIC ---
+    onSuccess: (newService) => {
       toast.success('API generation started!');
-      queryClient.invalidateQueries({ queryKey: ['services'] });
+      // Manually add the new service to the cache immediately
+      queryClient.setQueryData<ServiceMetadata[]>(['services'], (oldData) => {
+        return oldData ? [newService, ...oldData] : [newService];
+      });
       setPrompt('');
-      // The shadcn dialog will close itself via its own state management
+      // We don't need to invalidate, because the polling will handle the final state.
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to start generation.');
@@ -41,7 +46,7 @@ const CreateServiceDialog = () => {
   };
 
   return (
-    <Dialog onOpenChange={(isOpen) => !isOpen && mutation.reset()}>
+    <Dialog onOpenChange={(isOpen) => { if (!isOpen) mutation.reset(); }}>
       <DialogTrigger asChild>
         <Button>
           <PlusCircle className="w-4 h-4 mr-2" />
@@ -52,10 +57,10 @@ const CreateServiceDialog = () => {
         <DialogHeader>
           <DialogTitle>Create New API Service</DialogTitle>
           <DialogDescription>
-            Describe the API you want to build. Be specific about endpoints, methods, and data schemas.
+            Describe the API you want to build.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
+        <form id="create-service-form" onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <Label htmlFor="prompt" className="sr-only">Prompt</Label>
             <Textarea
@@ -67,15 +72,16 @@ const CreateServiceDialog = () => {
               required
             />
           </div>
-          <DialogFooter>
+        </form>
+         <DialogFooter>
             <Button
               type="submit"
+              form="create-service-form" // Link button to the form
               disabled={mutation.isLoading || !prompt.trim()}
             >
               {mutation.isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Generate API'}
             </Button>
           </DialogFooter>
-        </form>
       </DialogContent>
     </Dialog>
   );
