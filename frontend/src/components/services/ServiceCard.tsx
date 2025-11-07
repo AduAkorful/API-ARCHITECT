@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Trash2, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import DeleteServiceDialog from './DeleteServiceDialog';
-import ServiceDetailsDialog from './ServiceDetailsDialog'; // Import new dialog
+import ServiceDetailsDialog from './ServiceDetailsDialog';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,11 +13,20 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 interface ServiceCardProps {
   service: ServiceMetadata;
 }
-// ... (statusConfig is the same)
+
+// --- THIS OBJECT WAS MISSING ---
+const statusConfig: Record<ServiceStatus, { color: string; text: string; pulse: boolean }> = {
+  PENDING: { color: 'bg-slate-500', text: 'Pending', pulse: true },
+  BUILDING: { color: 'bg-amber-500', text: 'Building', pulse: true },
+  DEPLOYED: { color: 'bg-green-500', text: 'Deployed', pulse: false },
+  FAILED: { color: 'bg-red-500', text: 'Failed', pulse: false },
+  DELETING: { color: 'bg-gray-600', text: 'Deleting', pulse: true },
+};
+// --------------------------------
 
 const ServiceCard: React.FC<ServiceCardProps> = ({ service }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false); // State for new dialog
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [isJustDeployed, setIsJustDeployed] = useState(false);
   const prevStatusRef = useRef<ServiceStatus>();
 
@@ -56,12 +65,12 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service }) => {
         <CardContent className="flex-grow"></CardContent>
         <CardFooter className="flex justify-between items-center text-xs text-muted-foreground">
           <span>{formatDistanceToNow(new Date(service.created_at), { addSuffix: true })}</span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
             <TooltipProvider>
               {service.status === 'DEPLOYED' && service.deployed_url && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <a href={service.deployed_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                    <a href={service.deployed_url} target="_blank" rel="noopener noreferrer">
                       <Button variant="ghost" size="icon">
                         <ExternalLink className="w-4 h-4" />
                       </Button>
@@ -72,7 +81,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service }) => {
               )}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={e => { e.stopPropagation(); setShowDeleteDialog(true); }} disabled={service.status === 'DELETING'}>
+                  <Button variant="ghost" size="icon" onClick={() => setShowDeleteDialog(true)} disabled={service.status === 'DELETING'}>
                     <Trash2 className="w-4 h-4 text-red-500" />
                   </Button>
                 </TooltipTrigger>
