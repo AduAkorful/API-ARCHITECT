@@ -1,6 +1,12 @@
 import { auth } from './firebase';
 import { ServiceMetadata } from '../types';
 
+console.log("API Base URL:", import.meta.env.VITE_API_BASE_URL);
+
+const getApiClient = async () => {
+  // ... (rest of the file is the same)
+};
+
 const getApiClient = async () => {
   const user = auth.currentUser;
   if (!user) {
