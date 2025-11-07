@@ -20,7 +20,11 @@ interface ServiceDetailsDialogProps {
 const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({ isOpen, onClose, service }) => {
   if (!service) return null;
 
-  const { endpoint, deployed_url } = service;
+  // --- THE CRITICAL FIX IS HERE ---
+  // 'endpoint' is nested inside the 'spec' object.
+  const { spec: { endpoint }, deployed_url } = service;
+  // ---------------------------------
+
   const fullUrl = deployed_url ? `${deployed_url}${endpoint.path}` : `https://...${endpoint.path}`;
 
   const getCurlCommand = () => {
@@ -45,6 +49,21 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({ isOpen, onC
   const handleCopy = (text: string, name: string) => {
     navigator.clipboard.writeText(text);
     toast.success(`${name} copied to clipboard!`);
+  }
+
+  // --- ADDED A CHECK FOR endpoint ---
+  // Prevents crash if the spec is somehow malformed
+  if (!endpoint) {
+    return (
+       <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Error</DialogTitle>
+            <DialogDescription>Could not display details. The API specification is missing or malformed.</DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+       </Dialog>
+    );
   }
 
   return (
