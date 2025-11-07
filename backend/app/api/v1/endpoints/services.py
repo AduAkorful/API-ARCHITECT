@@ -6,11 +6,15 @@ from app.core import gcp, generation, ai
 from app.core.config import settings
 from app.models.service import ServiceMetadata, ServiceStatus
 from google.cloud import run_v2
-from app.core.auth import get_current_user # <-- IMPORT THE AUTH FUNCTION
+from google.cloud.devtools.cloudbuild_v1.services import cloud_build
+from google.cloud.devtools.cloudbuild_v1.types import Build
+from app.core.auth import get_current_user
+from google.api_core.exceptions import NotFound
 
 router = APIRouter()
 
 def sanitize_service_name(name: str) -> str:
+    """Sanitizes the service name to be DNS-compliant for Cloud Run."""
     name = name.lower()
     name = re.sub(r'[^a-z0-9-]', '-', name)
     name = name.strip('-')
@@ -18,6 +22,9 @@ def sanitize_service_name(name: str) -> str:
 
 @router.post("/generate", status_code=status.HTTP_202_ACCEPTED, response_model=ServiceMetadata)
 async def generate_service(prompt_body: Dict[str, str] = Body(...), user: dict = Depends(get_current_user)):
+    """
+    Generates a new microservice from a natural language prompt.
+    """
     prompt = prompt_body.get("prompt")
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt cannot be empty.")
@@ -27,7 +34,7 @@ async def generate_service(prompt_body: Dict[str, str] = Body(...), user: dict =
         service_name = sanitize_service_name(spec.get("service_name", "unnamed-service"))
         
         metadata = ServiceMetadata(
-            user_id=user['uid'], # Use the real user ID from the token
+            user_id=user['uid'],
             service_name=service_name,
             prompt=prompt,
             spec=spec
@@ -59,11 +66,56 @@ async def generate_service(prompt_body: Dict[str, str] = Body(...), user: dict =
 @router.get("/", response_model=List[ServiceMetadata])
 async def list_services(user: dict = Depends(get_current_user)):
     """
-    Retrieves all services for the authenticated user from Firestore.
+    Retrieves all services for the user, and reconciles the status of any
+    in-progress operations before returning the data.
     """
-    query = gcp.db.collection(settings.FIRESTORE_SERVICES_COLLECTION).where("user_id", "==", user['uid']).order_by("created_at", direction="DESCENDING")
-    results = [ServiceMetadata(**doc.to_dict()) async for doc in query.stream()]
-    return results
+    user_id = user['uid']
+    query = gcp.db.collection(settings.FIRESTORE_SERVICES_COLLECTION).where("user_id", "==", user_id).order_by("created_at", direction="DESCENDING")
+    docs = query.stream()
+    
+    services = [ServiceMetadata(**doc.to_dict()) async for doc in docs]
+    
+    services_to_return = []
+    
+    build_client = cloud_build.CloudBuildAsyncClient()
+    run_client = run_v2.ServicesAsyncClient()
+
+    for service in services:
+        doc_ref = gcp.db.collection(settings.FIRESTORE_SERVICES_COLLECTION).document(service.id)
+        
+        if service.status == ServiceStatus.BUILDING and service.build_id:
+            try:
+                build_info = await build_client.get_build(project_id=settings.GCP_PROJECT_ID, build_id=service.build_id)
+                if build_info.status == Build.Status.SUCCESS:
+                    service.status = ServiceStatus.DEPLOYED
+                    service_path = f"projects/{settings.GCP_PROJECT_ID}/locations/{settings.GCP_REGION}/services/{service.service_name}"
+                    try:
+                        run_service = await run_client.get_service(name=service_path)
+                        service.deployed_url = run_service.uri
+                    except NotFound:
+                        service.status = ServiceStatus.FAILED
+                    await doc_ref.set(service.model_dump())
+                elif build_info.status in [Build.Status.FAILURE, Build.Status.CANCELLED, Build.Status.EXPIRED]:
+                    service.status = ServiceStatus.FAILED
+                    await doc_ref.set(service.model_dump())
+            except Exception as e:
+                print(f"Error checking build status for {service.id}: {e}")
+
+        elif service.status == ServiceStatus.DELETING:
+             try:
+                service_path = f"projects/{settings.GCP_PROJECT_ID}/locations/{settings.GCP_REGION}/services/{service.service_name}"
+                await run_client.get_service(name=service_path)
+                # If it still exists, keep it in the list for the UI to show "Deleting"
+             except NotFound:
+                # The service is gone, so we can delete the record.
+                await doc_ref.delete()
+                continue # Skip adding it to the final list to return
+             except Exception as e:
+                print(f"Error checking delete status for {service.id}: {e}")
+        
+        services_to_return.append(service)
+
+    return services_to_return
 
 @router.delete("/{service_id}", status_code=status.HTTP_200_OK)
 async def delete_service(service_id: str, user: dict = Depends(get_current_user)):
@@ -87,8 +139,6 @@ async def delete_service(service_id: str, user: dict = Depends(get_current_user)
 
         print(f"Initiating deletion of Cloud Run service: {service_path}")
         await run_client.delete_service(name=service_path)
-        
-        # We will leave the record in Firestore with "DELETING" status for history.
         
         return {"message": f"Deletion initiated for service '{metadata.service_name}'."}
 
