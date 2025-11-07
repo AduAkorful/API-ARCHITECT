@@ -19,11 +19,7 @@ def sanitize_service_name(name: str) -> str:
     name = name.strip('-')
     return name[:50]
 
-# --- CLIENT INITIALIZATION ---
-# Initialize clients once with explicit project ID to ensure correct authentication context.
-build_client = cloud_build.CloudBuildAsyncClient()
-run_client = run_v2.ServicesAsyncClient()
-# -----------------------------
+# DO NOT INITIALIZE CLIENTS HERE
 
 @router.post("/generate", status_code=status.HTTP_202_ACCEPTED, response_model=ServiceMetadata)
 async def generate_service(prompt_body: Dict[str, str] = Body(...), user: dict = Depends(get_current_user)):
@@ -57,6 +53,11 @@ async def list_services(user: dict = Depends(get_current_user)):
     docs = query.stream()
     services = [ServiceMetadata(**doc.to_dict()) async for doc in docs]
     services_to_return = []
+
+    # --- CRITICAL FIX: INITIALIZE CLIENTS INSIDE THE ASYNC FUNCTION ---
+    build_client = cloud_build.CloudBuildAsyncClient()
+    run_client = run_v2.ServicesAsyncClient()
+    # ------------------------------------------------------------------
 
     for service in services:
         doc_ref = gcp.db.collection(settings.FIRESTORE_SERVICES_COLLECTION).document(service.id)
@@ -97,7 +98,8 @@ async def delete_service(service_id: str, user: dict = Depends(get_current_user)
         metadata.status = ServiceStatus.DELETING
         await doc_ref.set(metadata.model_dump())
         
-        # --- MORE ROBUST PATH CONSTRUCTION ---
+        # --- CRITICAL FIX: INITIALIZE CLIENT INSIDE THE ASYNC FUNCTION ---
+        run_client = run_v2.ServicesAsyncClient()
         service_path = run_client.service_path(settings.GCP_PROJECT_ID, settings.GCP_REGION, metadata.service_name)
         
         print(f"Initiating deletion of Cloud Run service: {service_path}")
