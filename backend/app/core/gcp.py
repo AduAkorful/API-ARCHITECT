@@ -39,8 +39,8 @@ async def trigger_cloud_build(gcs_source_uri: str, service_name: str) -> str:
     
     build.source = {"storage_source": {"bucket": settings.GCP_SOURCE_BUCKET_NAME, "object_": source_object}}
     
-    # Use the standard Cloud Build configuration file from the generated source
-    build.steps = [{"name": "gcr.io/cloud-builders/docker", "args": ["build", "-t", f"gcr.io/{project_id}/{service_name}", "."]}]
+    # Cloud Build will automatically use the cloudbuild.yaml file from the uploaded source
+    # This file contains all the steps: build, push to Artifact Registry, and deploy to Cloud Run
     
     operation = await cloudbuild_client.create_build(project_id=project_id, build=build)
     return operation.metadata.build.id
