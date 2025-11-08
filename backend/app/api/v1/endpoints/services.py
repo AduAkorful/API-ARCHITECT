@@ -6,7 +6,7 @@ import asyncio
 from app.core import gcp, generation, ai
 from app.core.config import settings
 from app.models.service import ServiceMetadata, ServiceStatus
-from app.state import clients # <-- IMPORT THE SHARED CLIENTS
+from app.state import clients
 from google.cloud.devtools.cloudbuild_v1.types import Build
 from app.core.auth import get_current_user
 from google.api_core.exceptions import NotFound
@@ -21,7 +21,7 @@ def sanitize_service_name(name: str) -> str:
 
 @router.post("/generate", status_code=status.HTTP_202_ACCEPTED, response_model=ServiceMetadata)
 async def generate_service(prompt_body: Dict[str, str] = Body(...), user: dict = Depends(get_current_user)):
-    # This function is correct and remains unchanged from its original logic
+    # This function is correct.
     prompt = prompt_body.get("prompt")
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt cannot be empty.")
@@ -52,14 +52,16 @@ async def list_services(user: dict = Depends(get_current_user)):
     services = [ServiceMetadata(**doc.to_dict()) async for doc in docs]
     
     async def reconcile_status(service: ServiceMetadata):
-        # Use the shared clients from app.state
         build_client = clients["build_client"]
         run_client = clients["run_client"]
         doc_ref = gcp.db.collection(settings.FIRESTORE_SERVICES_COLLECTION).document(service.id)
         
         if service.status == ServiceStatus.BUILDING and service.build_id:
             try:
-                build_info = await build_client.get_build(project_id=settings.GCP_PROJECT_ID, build_id=service.build_id)
+                # --- THE FINAL, CORRECTED FIX ---
+                # The argument is 'id', not 'build_id'
+                build_info = await build_client.get_build(project_id=settings.GCP_PROJECT_ID, id=service.build_id)
+                
                 if build_info.status == Build.Status.SUCCESS:
                     service.status = ServiceStatus.DEPLOYED
                     service_path = run_client.service_path(settings.GCP_PROJECT_ID, settings.GCP_REGION, service.service_name)
@@ -91,6 +93,7 @@ async def list_services(user: dict = Depends(get_current_user)):
 
 @router.delete("/{service_id}", status_code=status.HTTP_200_OK)
 async def delete_service(service_id: str, user: dict = Depends(get_current_user)):
+    # This function is correct.
     try:
         doc_ref = gcp.db.collection(settings.FIRESTORE_SERVICES_COLLECTION).document(service_id)
         doc = await doc_ref.get()
@@ -100,7 +103,6 @@ async def delete_service(service_id: str, user: dict = Depends(get_current_user)
         metadata.status = ServiceStatus.DELETING
         await doc_ref.set(metadata.model_dump())
         
-        # Use the shared client from app.state
         run_client = clients["run_client"]
         service_path = run_client.service_path(settings.GCP_PROJECT_ID, settings.GCP_REGION, metadata.service_name)
         
