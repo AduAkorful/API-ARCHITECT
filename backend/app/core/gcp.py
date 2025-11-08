@@ -34,20 +34,45 @@ async def trigger_cloud_build(gcs_source_uri: str, service_name: str) -> str:
     """Triggers a Cloud Build job to build and deploy the service asynchronously."""
     cloudbuild_client = clients["build_client"]
     project_id = settings.GCP_PROJECT_ID
+    region = settings.GCP_REGION
+    source_object = gcs_source_uri.split(f"gs://{settings.GCP_SOURCE_BUCKET_NAME}/")[-1]
     
-    # Create build request with source from GCS
-    build_request = {
-        "project_id": project_id,
-        "build": {
-            "source": {
-                "storage_source": {
-                    "bucket": settings.GCP_SOURCE_BUCKET_NAME,
-                    "object_": gcs_source_uri.split(f"gs://{settings.GCP_SOURCE_BUCKET_NAME}/")[-1]
-                }
-            }
-        }
-    }
+    # Define build steps directly (matching cloudbuild.yaml.j2 template)
+    image_name = f"{region}-docker.pkg.dev/{project_id}/api-architect-repo/{service_name}:latest"
     
-    # Cloud Build will automatically find and use the cloudbuild.yaml in the source
-    operation = await cloudbuild_client.create_build(**build_request)
+    build = cloudbuild_v1.Build(
+        source=cloudbuild_v1.Source(
+            storage_source=cloudbuild_v1.StorageSource(
+                bucket=settings.GCP_SOURCE_BUCKET_NAME,
+                object_=source_object
+            )
+        ),
+        steps=[
+            # Step 1: Build the Docker image
+            cloudbuild_v1.BuildStep(
+                name="gcr.io/cloud-builders/docker",
+                args=["build", "-t", image_name, "."]
+            ),
+            # Step 2: Push to Artifact Registry
+            cloudbuild_v1.BuildStep(
+                name="gcr.io/cloud-builders/docker",
+                args=["push", image_name]
+            ),
+            # Step 3: Deploy to Cloud Run
+            cloudbuild_v1.BuildStep(
+                name="gcr.io/google.com/cloudsdktool/cloud-sdk",
+                entrypoint="gcloud",
+                args=[
+                    "run", "deploy", service_name,
+                    "--image", image_name,
+                    "--region", region,
+                    "--platform", "managed",
+                    "--allow-unauthenticated",
+                    "--project", project_id
+                ]
+            )
+        ]
+    )
+    
+    operation = await cloudbuild_client.create_build(project_id=project_id, build=build)
     return operation.metadata.build.id
