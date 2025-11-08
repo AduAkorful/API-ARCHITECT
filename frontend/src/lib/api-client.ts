@@ -56,12 +56,12 @@ export const generateService = async (prompt: string): Promise<ServiceMetadata> 
   return response.json();
 };
 
-export const deleteService = async (serviceId: string): Promise<{ message: string }> => {
+export const deleteService = async (serviceId: string): Promise<void> => {
   const headers = await getHeaders();
   const response = await fetch(`${baseURL}/services/${serviceId}`, {
     method: 'DELETE',
     headers,
   });
   if (!response.ok) throw new Error(await response.text());
-  return response.json();
+  // Backend returns 204 No Content, so no need to parse JSON
 };

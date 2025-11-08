@@ -26,25 +26,34 @@ const DeleteServiceDialog: React.FC<DeleteServiceDialogProps> = ({ isOpen, onClo
   const mutation = useMutation({
     mutationFn: deleteService,
     onMutate: async (deletedServiceId: string) => {
+        // Cancel any outgoing refetches to avoid race conditions
         await queryClient.cancelQueries({ queryKey: ['services'] });
+        
+        // Snapshot the previous value
         const previousServices = queryClient.getQueryData<ServiceMetadata[]>(['services']);
+        
+        // Optimistically remove the service from the list
         queryClient.setQueryData<ServiceMetadata[]>(['services'], (old) =>
-            old?.map(s => s.id === deletedServiceId ? { ...s, status: 'DELETING' } : s)
+            old?.filter(s => s.id !== deletedServiceId) ?? []
         );
+        
         toast.loading('Deleting service...', { id: `delete-${deletedServiceId}` });
         onClose();
+        
         return { previousServices };
     },
     onError: (err, variables, context) => {
+      // Rollback on error
       if (context?.previousServices) {
         queryClient.setQueryData(['services'], context.previousServices);
       }
       toast.error('Failed to delete service.', { id: `delete-${variables}` });
     },
     onSuccess: (data, variables) => {
-      toast.success('Service deletion initiated.', { id: `delete-${variables}` });
+      toast.success('Service deleted successfully!', { id: `delete-${variables}` });
     },
     onSettled: () => {
+        // Refetch to ensure we're in sync with the server
         queryClient.invalidateQueries({ queryKey: ['services'] });
     },
   });
@@ -73,16 +82,16 @@ const DeleteServiceDialog: React.FC<DeleteServiceDialogProps> = ({ isOpen, onClo
           <Button
             variant="outline"
             onClick={onClose}
-            disabled={mutation.isLoading}
+            disabled={mutation.isPending}
           >
             Cancel
           </Button>
           <Button
             variant="destructive"
             onClick={handleDelete}
-            disabled={mutation.isLoading}
+            disabled={mutation.isPending}
           >
-            {mutation.isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete'}
+            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete'}
           </Button>
         </DialogFooter>
       </DialogContent>
