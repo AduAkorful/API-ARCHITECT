@@ -17,39 +17,51 @@ async def run_generation_pipeline(metadata: ServiceMetadata):
     """
     This background task runs the full service generation and deployment pipeline.
     """
+    print(f"[PIPELINE] Starting generation pipeline for service {metadata.id}")
     doc_ref = gcp.db.collection(settings.FIRESTORE_SERVICES_COLLECTION).document(metadata.id)
     try:
         # 1. Generate the spec from the AI
+        print(f"[PIPELINE] Step 1: Calling Gemini AI for service {metadata.id}")
         spec = ai.generate_spec_from_prompt(metadata.prompt)
         metadata.spec = spec
+        print(f"[PIPELINE] Step 1 complete: Generated spec for {spec.get('service_name')}")
         
         # Ensure service_name is updated from spec if it changed
         service_name = sanitize_service_name(spec.get("service_name", metadata.service_name))
         metadata.service_name = service_name
         
         # 2. Generate the Flask service source code
+        print(f"[PIPELINE] Step 2: Generating Flask service files for {service_name}")
         gcp_config = {
             "project_id": settings.GCP_PROJECT_ID, 
             "region": settings.GCP_REGION, 
             "repository": "api-architect-repo"
         }
         zip_path = generation.generate_flask_service(spec, gcp_config)
+        print(f"[PIPELINE] Step 2 complete: Created zip at {zip_path}")
         
         # 3. Upload to GCS
+        print(f"[PIPELINE] Step 3: Uploading to Google Cloud Storage")
         blob_name = f"source/{metadata.id}/{os.path.basename(zip_path)}"
         gcs_uri = await gcp.upload_source_to_gcs(zip_path, blob_name)
+        print(f"[PIPELINE] Step 3 complete: Uploaded to {gcs_uri}")
         
         # 4. Trigger Cloud Build
+        print(f"[PIPELINE] Step 4: Triggering Cloud Build for {service_name}")
         build_id = await gcp.trigger_cloud_build(gcs_uri, service_name)
         metadata.build_id = build_id
         metadata.status = ServiceStatus.BUILDING
         metadata.build_log_url = f"https://console.cloud.google.com/cloud-build/builds/{build_id}?project={settings.GCP_PROJECT_ID}"
         
+        print(f"[PIPELINE] Updating Firestore with build ID: {build_id}")
         await doc_ref.set(metadata.model_dump())
         os.remove(zip_path)
+        print(f"[PIPELINE] Pipeline complete for service {metadata.id}")
 
     except Exception as e:
-        print(f"Error in generation pipeline for service {metadata.id}: {e}")
+        print(f"[PIPELINE ERROR] Error in generation pipeline for service {metadata.id}: {e}")
+        import traceback
+        traceback.print_exc()
         metadata.status = ServiceStatus.FAILED
         metadata.error_message = str(e)
         await doc_ref.set(metadata.model_dump())
