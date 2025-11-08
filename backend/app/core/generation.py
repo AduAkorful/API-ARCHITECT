@@ -6,7 +6,6 @@ from typing import Dict, Any
 from jinja2 import Environment, FileSystemLoader
 import logging
 
-# Set up basic logging to see success messages
 logging.basicConfig(level=logging.INFO)
 
 template_dir = Path(__file__).parent.parent.parent / "templates"
@@ -24,27 +23,25 @@ def generate_flask_service(spec: Dict[str, Any], gcp_config: Dict[str, str]) -> 
     
     flask_template_dir = template_dir / "flask_template"
     
-    # --- CRITICAL FIX: Re-create the full context object ---
     context = {
         "endpoint": spec["endpoint"],
         "storage": spec.get("storage"),
         "service": {"name": service_name},
         "gcp": gcp_config
     }
-    # --------------------------------------------------------
-    
+
     try:
         for template_file in flask_template_dir.rglob("*.j2"):
             relative_path = template_file.relative_to(flask_template_dir)
             output_file = source_dir / relative_path.with_suffix("")
-            template_name = template_file.relative_to(template_dir).as_posix()
-            
-            template = env.get_template(template_name)
-            
-            # --- CRITICAL FIX: Pass the full context, not just the spec ---
-            rendered_content = template.render(context)
+
             
             output_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            template_name = template_file.relative_to(template_dir).as_posix()
+            template = env.get_template(template_name)
+            rendered_content = template.render(context)
+            
             with open(output_file, "w") as f:
                 f.write(rendered_content)
     
