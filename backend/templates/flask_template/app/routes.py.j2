@@ -4,6 +4,30 @@ from models import {{ endpoint.model_name }}
 
 api_bp = Blueprint('api', __name__)
 
+@api_bp.route("/", methods=["GET"])
+def root():
+    """
+    Root endpoint providing API information.
+    """
+    return jsonify({
+        "service": "{{ service.name }}",
+        "status": "running",
+        "endpoints": {
+            "{{ endpoint.path }}": {
+                "method": "{{ endpoint.method | upper }}",
+                "model": "{{ endpoint.model_name }}"
+            }
+        },
+        "health_check": "/health"
+    }), 200
+
+@api_bp.route("/health", methods=["GET"])
+def health_check():
+    """
+    Health check endpoint for monitoring.
+    """
+    return jsonify({"status": "healthy"}), 200
+
 @api_bp.route("{{ endpoint.path }}", methods=["{{ endpoint.method | upper }}"])
 def handle_request():
     """
