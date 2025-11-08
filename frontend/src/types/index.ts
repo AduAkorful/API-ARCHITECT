@@ -1,5 +1,23 @@
 export type ServiceStatus = 'PENDING' | 'BUILDING' | 'DEPLOYED' | 'FAILED' | 'DELETING';
 
+export interface SchemaField {
+  name: string;
+  type: string;
+  required?: boolean;
+}
+
+export interface EndpointSpec {
+  path: string;
+  method: string;
+  schema_fields?: SchemaField[];
+}
+
+export interface ServiceSpec {
+  endpoint?: EndpointSpec;
+  // allow additional fields the AI may add
+  [key: string]: any;
+}
+
 export interface ServiceMetadata {
   id: string;
   user_id: string;
@@ -10,5 +28,5 @@ export interface ServiceMetadata {
   build_log_url?: string;
   created_at: string; // ISO 8601 date string
   updated_at: string; // ISO 8601 date string
-  spec: object;
+  spec: ServiceSpec;
 }

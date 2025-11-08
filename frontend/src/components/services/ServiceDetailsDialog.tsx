@@ -94,7 +94,7 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({ isOpen, onC
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {endpoint.schema_fields.map(field => (
+                {endpoint.schema_fields?.map(field => (
                   <TableRow key={field.name}>
                     <TableCell className="font-mono">{field.name}</TableCell>
                     <TableCell className="font-mono">{field.type}</TableCell>
