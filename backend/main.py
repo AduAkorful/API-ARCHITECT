@@ -22,8 +22,10 @@ async def lifespan(app: FastAPI):
     yield
     
     print("Application shutdown: Closing clients.")
-    await build_client.close()
-    await run_client.close()
+    # Only close clients that have a close method
+    if hasattr(run_client, 'close'):
+        await run_client.close()
+    # CloudBuildAsyncClient doesn't have a close method, so we skip it
 
 
 # Pass the lifespan manager to the FastAPI app
