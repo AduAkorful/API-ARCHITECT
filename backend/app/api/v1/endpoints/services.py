@@ -118,16 +118,6 @@ async def list_services(user: dict = Depends(get_current_user)):
             except Exception as e:
                 print(f"Error checking build status for {service.id}: {e}")
         
-        elif service.status == ServiceStatus.DELETING:
-             try:
-                service_path = run_client.service_path(settings.GCP_PROJECT_ID, settings.GCP_REGION, service.service_name)
-                await run_client.get_service(name=service_path)
-             except NotFound:
-                await doc_ref.delete()
-                return None
-             except Exception as e:
-                print(f"Error checking delete status for {service.id}: {e}")
-
         return service
 
     tasks = [reconcile_status(s) for s in services]
