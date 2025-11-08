@@ -14,7 +14,9 @@ class Settings(BaseSettings):
     GCP_SOURCE_BUCKET_NAME: str
     FIRESTORE_SERVICES_COLLECTION: str = "services"
     GEMINI_API_KEY: str
-    CORS_ORIGINS: str = ""
+    # Default CORS origins for local development.
+    # In production, this is overridden by the Cloud Run environment variable.
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     API_V1_STR: str = "/api/v1"
 
 settings = Settings()
