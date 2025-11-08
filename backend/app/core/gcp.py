@@ -1,4 +1,5 @@
-from google.cloud import firestore, storage
+from google.cloud import firestore
+from google.cloud.storage.aio import Client as StorageClient
 from google.cloud.devtools import cloudbuild_v1
 from app.core.config import settings
 from app.models.service import ServiceMetadata
@@ -6,7 +7,7 @@ from datetime import datetime
 
 # Use async clients for all Google Cloud services
 db = firestore.AsyncClient(project=settings.GCP_PROJECT_ID)
-storage_client = storage.aio.Client(project=settings.GCP_PROJECT_ID)
+storage_client = StorageClient(project=settings.GCP_PROJECT_ID)
 cloudbuild_client = cloudbuild_v1.CloudBuildAsyncClient()
 
 async def save_service_metadata(metadata: ServiceMetadata):
@@ -17,7 +18,7 @@ async def save_service_metadata(metadata: ServiceMetadata):
 
 async def upload_source_to_gcs(source_zip_path: str, destination_blob_name: str) -> str:
     """Uploads the zipped source code to Google Cloud Storage asynchronously."""
-    bucket = storage_client.get_bucket(settings.GCP_SOURCE_BUCKET_NAME)
+    bucket = await storage_client.get_bucket(settings.GCP_SOURCE_BUCKET_NAME)
     blob = bucket.blob(destination_blob_name)
     await blob.upload_from_filename(source_zip_path)
     return f"gs://{settings.GCP_SOURCE_BUCKET_NAME}/{destination_blob_name}"
