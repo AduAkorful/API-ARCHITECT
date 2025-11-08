@@ -1,4 +1,4 @@
-export type ServiceStatus = 'PENDING' | 'BUILDING' | 'DEPLOYED' | 'FAILED' | 'DELETING';
+export type ServiceStatus = 'PENDING' | 'BUILDING' | 'DEPLOYED' | 'FAILED';
 
 export interface SchemaField {
   name: string;
@@ -28,5 +28,6 @@ export interface ServiceMetadata {
   build_log_url?: string;
   created_at: string; // ISO 8601 date string
   updated_at: string; // ISO 8601 date string
-  spec: ServiceSpec;
+  spec?: ServiceSpec;
+  error_message?: string;
 }

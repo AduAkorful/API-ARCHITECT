@@ -15,7 +15,7 @@ const Dashboard = () => {
     // Only enable this query if the user object exists.
     enabled: !!user,
     refetchInterval: (data) => 
-      data?.some(s => s.status === 'BUILDING' || s.status === 'PENDING' || s.status === 'DELETING') ? 5000 : false,
+      data?.some(s => s.status === 'BUILDING' || s.status === 'PENDING') ? 5000 : false,
   });
 
   if (isLoading) {

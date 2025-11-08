@@ -14,15 +14,12 @@ interface ServiceCardProps {
   service: ServiceMetadata;
 }
 
-// --- THIS OBJECT WAS MISSING ---
 const statusConfig: Record<ServiceStatus, { color: string; text: string; pulse: boolean }> = {
   PENDING: { color: 'bg-slate-500', text: 'Pending', pulse: true },
   BUILDING: { color: 'bg-amber-500', text: 'Building', pulse: true },
   DEPLOYED: { color: 'bg-green-500', text: 'Deployed', pulse: false },
   FAILED: { color: 'bg-red-500', text: 'Failed', pulse: false },
-  DELETING: { color: 'bg-gray-600', text: 'Deleting', pulse: true },
 };
-// --------------------------------
 
 const ServiceCard: React.FC<ServiceCardProps> = ({ service }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -81,7 +78,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service }) => {
               )}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={() => setShowDeleteDialog(true)} disabled={service.status === 'DELETING'}>
+                  <Button variant="ghost" size="icon" onClick={() => setShowDeleteDialog(true)}>
                     <Trash2 className="w-4 h-4 text-red-500" />
                   </Button>
                 </TooltipTrigger>
