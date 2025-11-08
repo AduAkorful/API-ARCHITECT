@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from .models import {{ endpoint.model_name }}
+from models import {{ endpoint.model_name }}
 
 api_bp = Blueprint('api', __name__)
 
