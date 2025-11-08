@@ -1,6 +1,7 @@
 import os
 from flask import Flask
-from .routes import api_bp
+# --- THE FIX: Import from a sibling module, not a sub-package ---
+from routes import api_bp
 
 def create_app():
     app = Flask(__name__)

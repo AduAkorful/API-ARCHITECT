@@ -1,22 +1,14 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy and install requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code
-COPY ./app /app
+# Copy all generated files (main.py, routes.py, etc.) into the workdir
+COPY . .
 
-# The PORT environment variable is automatically set by Cloud Run.
-# Gunicorn will automatically use this variable.
 EXPOSE 8080
 
-# --- CORRECTED START COMMAND ---
-# Use gunicorn to run the application.
-# -b 0.0.0.0:8080 tells it to listen on all network interfaces on port 8080.
-# 'app.main:create_app()' tells gunicorn to look in the 'app/main.py' file
-# for a function named 'create_app' and use that to start the application.
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app.main:create_app()"]
+# --- THE FIX: The app is now 'main', not 'app.main' ---
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "main:create_app()"]
