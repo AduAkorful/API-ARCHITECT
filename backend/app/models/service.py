@@ -8,7 +8,6 @@ class ServiceStatus:
     BUILDING = "BUILDING"
     DEPLOYED = "DEPLOYED"
     FAILED = "FAILED"
-    DELETING = "DELETING"
 
 class ServiceMetadata(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

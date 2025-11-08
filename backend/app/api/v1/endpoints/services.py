@@ -37,10 +37,10 @@ async def run_generation_pipeline(metadata: ServiceMetadata):
         
         # 3. Upload to GCS
         blob_name = f"source/{metadata.id}/{os.path.basename(zip_path)}"
-        gcs_uri = gcp.upload_source_to_gcs(zip_path, blob_name)
+        gcs_uri = await gcp.upload_source_to_gcs(zip_path, blob_name)
         
         # 4. Trigger Cloud Build
-        build_id = gcp.trigger_cloud_build(gcs_uri, service_name)
+        build_id = await gcp.trigger_cloud_build(gcs_uri, service_name)
         metadata.build_id = build_id
         metadata.status = ServiceStatus.BUILDING
         metadata.build_log_url = f"https://console.cloud.google.com/cloud-build/builds/{build_id}?project={settings.GCP_PROJECT_ID}"
@@ -135,25 +135,43 @@ async def list_services(user: dict = Depends(get_current_user)):
     services_to_return = [s for s in reconciled_results if s is not None]
     return services_to_return
 
-@router.delete("/{service_id}", status_code=status.HTTP_200_OK)
+@router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_service(service_id: str, user: dict = Depends(get_current_user)):
-    # This function is correct.
+    """
+    Deletes a service. This operation is idempotent.
+    It will succeed even if the underlying Cloud Run service has already been deleted.
+    """
     try:
         doc_ref = gcp.db.collection(settings.FIRESTORE_SERVICES_COLLECTION).document(service_id)
         doc = await doc_ref.get()
-        if not doc.exists or doc.to_dict().get('user_id') != user['uid']:
-            raise HTTPException(status_code=404, detail="Service not found or permission denied.")
+
+        if not doc.exists:
+            # The metadata is already gone. Return success.
+            return
+
+        if doc.to_dict().get('user_id') != user['uid']:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied.")
+
         metadata = ServiceMetadata(**doc.to_dict())
-        metadata.status = ServiceStatus.DELETING
-        await doc_ref.set(metadata.model_dump())
         
-        run_client = clients["run_client"]
-        service_path = run_client.service_path(settings.GCP_PROJECT_ID, settings.GCP_REGION, metadata.service_name)
+        # Attempt to delete the service from Google Cloud Run
+        if metadata.service_name:
+            run_client = clients["run_client"]
+            service_path = run_client.service_path(settings.GCP_PROJECT_ID, settings.GCP_REGION, metadata.service_name)
+            
+            try:
+                await run_client.delete_service(name=service_path)
+            except NotFound:
+                # This is the desired state, so we can ignore this error.
+                print(f"Cloud Run service '{metadata.service_name}' not found. It may have been deleted manually.")
+                pass
         
-        await run_client.delete_service(name=service_path)
-        return {"message": f"Deletion initiated for service '{metadata.service_name}'."}
+        # Finally, delete the service metadata from Firestore
+        await doc_ref.delete()
+
+    except HTTPException:
+        # Re-raise user-facing errors (e.g., 403)
+        raise
     except Exception as e:
-        if 'doc_ref' in locals() and 'metadata' in locals():
-            metadata.status = ServiceStatus.FAILED
-            await doc_ref.set(metadata.model_dump())
-        raise HTTPException(status_code=500, detail=f"Failed to delete service: {e}")
+        # For any other unexpected error, return a generic 500
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error occurred: {e}")

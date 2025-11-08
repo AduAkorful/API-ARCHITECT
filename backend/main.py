@@ -12,14 +12,18 @@ from google.cloud import run_v2
 # Code after the 'yield' runs on shutdown.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # On startup, initialize the async clients and store them in the shared state
     print("Application startup: Initializing Google Cloud clients...")
-    clients["build_client"] = cloud_build.CloudBuildAsyncClient()
-    clients["run_client"] = run_v2.ServicesAsyncClient()
+    build_client = cloud_build.CloudBuildAsyncClient()
+    run_client = run_v2.ServicesAsyncClient()
+    clients["build_client"] = build_client
+    clients["run_client"] = run_client
     print("Google Cloud clients initialized successfully.")
+    
     yield
-    # On shutdown, clients will be closed automatically.
+    
     print("Application shutdown: Closing clients.")
+    await build_client.close()
+    await run_client.close()
 
 
 # Pass the lifespan manager to the FastAPI app
