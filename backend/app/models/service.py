@@ -21,4 +21,5 @@ class ServiceMetadata(BaseModel):
     build_log_url: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    spec: Dict[str, Any]
+    spec: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
