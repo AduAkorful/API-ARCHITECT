@@ -2,13 +2,14 @@ from google.cloud import firestore, storage
 from google.cloud.devtools import cloudbuild_v1
 from app.core.config import settings
 from app.models.service import ServiceMetadata
+from app.state import clients
 import asyncio
 
 # Use async clients for Google Cloud services that support them
 db = firestore.AsyncClient(project=settings.GCP_PROJECT_ID)
 # Use synchronous client for storage (will be wrapped in executor when called)
 storage_client = storage.Client(project=settings.GCP_PROJECT_ID)
-cloudbuild_client = cloudbuild_v1.CloudBuildAsyncClient()
+# Note: cloudbuild_client is initialized in main.py's lifespan and accessed via clients dict
 
 async def save_service_metadata(metadata: ServiceMetadata):
     """Saves or updates service metadata in Firestore."""
@@ -31,6 +32,7 @@ async def upload_source_to_gcs(source_zip_path: str, destination_blob_name: str)
 
 async def trigger_cloud_build(gcs_source_uri: str, service_name: str) -> str:
     """Triggers a Cloud Build job to build and deploy the service asynchronously."""
+    cloudbuild_client = clients["build_client"]
     project_id = settings.GCP_PROJECT_ID
     build = cloudbuild_v1.Build()
     source_object = gcs_source_uri.split(f"gs://{settings.GCP_SOURCE_BUCKET_NAME}/")[-1]
