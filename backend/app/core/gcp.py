@@ -34,13 +34,20 @@ async def trigger_cloud_build(gcs_source_uri: str, service_name: str) -> str:
     """Triggers a Cloud Build job to build and deploy the service asynchronously."""
     cloudbuild_client = clients["build_client"]
     project_id = settings.GCP_PROJECT_ID
-    build = cloudbuild_v1.Build()
-    source_object = gcs_source_uri.split(f"gs://{settings.GCP_SOURCE_BUCKET_NAME}/")[-1]
     
-    build.source = {"storage_source": {"bucket": settings.GCP_SOURCE_BUCKET_NAME, "object_": source_object}}
+    # Create build request with source from GCS
+    build_request = {
+        "project_id": project_id,
+        "build": {
+            "source": {
+                "storage_source": {
+                    "bucket": settings.GCP_SOURCE_BUCKET_NAME,
+                    "object_": gcs_source_uri.split(f"gs://{settings.GCP_SOURCE_BUCKET_NAME}/")[-1]
+                }
+            }
+        }
+    }
     
-    # Cloud Build will automatically use the cloudbuild.yaml file from the uploaded source
-    # This file contains all the steps: build, push to Artifact Registry, and deploy to Cloud Run
-    
-    operation = await cloudbuild_client.create_build(project_id=project_id, build=build)
+    # Cloud Build will automatically find and use the cloudbuild.yaml in the source
+    operation = await cloudbuild_client.create_build(**build_request)
     return operation.metadata.build.id
