@@ -59,7 +59,8 @@ def generate_flask_service(spec: Dict[str, Any], gcp_config: Dict[str, str]) -> 
             except TemplateError as e:
                 raise IOError(f"Failed to render template {template_name}: {e}")
 
-        zip_path = build_dir / f"{service_name}.zip"
+        # Create zip at parent level (not inside source_dir which will be deleted)
+        zip_path = Path("/tmp") / f"{service_name}_{unique_id}.zip"
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(source_dir):
                 for file in files:
@@ -69,7 +70,7 @@ def generate_flask_service(spec: Dict[str, Any], gcp_config: Dict[str, str]) -> 
         
         return str(zip_path)
     finally:
-        # This will now run regardless of success or failure
+        # Clean up the source directory (but not the zip file which is at parent level)
         if source_dir.exists():
             shutil.rmtree(source_dir)
     # -----------------------------------------------------------------
