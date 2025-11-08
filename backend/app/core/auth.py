@@ -3,7 +3,6 @@ import firebase_admin
 from firebase_admin import credentials, auth
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-import os
 
 # This will use the Application Default Credentials of the Cloud Run service account
 try:
