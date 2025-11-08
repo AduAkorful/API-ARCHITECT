@@ -20,24 +20,24 @@ interface ServiceDetailsDialogProps {
 const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({ isOpen, onClose, service }) => {
   if (!service) return null;
 
-  // --- THE CRITICAL FIX IS HERE ---
-  // 'endpoint' is nested inside the 'spec' object.
-  const { spec: { endpoint }, deployed_url } = service;
-  // ---------------------------------
-
-  const fullUrl = deployed_url ? `${deployed_url}${endpoint.path}` : `https://...${endpoint.path}`;
+  // Safely access nested values — spec or endpoint may be missing.
+  const endpoint = service.spec?.endpoint;
+  const deployed_url = service.deployed_url;
 
   const getCurlCommand = () => {
-    let curl = `curl -X ${endpoint.method.toUpperCase()} "${fullUrl}" \\\n  -H "Content-Type: application/json"`;
+    if (!endpoint) return '';
+    const fullUrl = deployed_url ? `${deployed_url}${endpoint.path}` : `https://...${endpoint.path}`;
+    let curl = `curl -X ${endpoint.method.toUpperCase()} "${fullUrl}" \\\n+  -H "Content-Type: application/json"`;
     if (endpoint.method.toUpperCase() === 'POST' || endpoint.method.toUpperCase() === 'PUT') {
       const exampleBody = JSON.stringify(getExampleBody(), null, 2);
-      curl += ` \\\n  -d '${exampleBody}'`;
+      curl += ` \\\n+  -d '${exampleBody}'`;
     }
     return curl;
   };
 
   const getExampleBody = () => {
     const body: { [key: string]: any } = {};
+    if (!endpoint?.schema_fields) return body;
     endpoint.schema_fields.forEach(field => {
       if (field.type === 'str' || field.type === 'EmailStr') body[field.name] = `example_${field.name}`;
       if (field.type === 'int') body[field.name] = 123;
