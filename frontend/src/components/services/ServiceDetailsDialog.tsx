@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Copy, Download, ExternalLink, FileText, Loader2 } from 'lucide-react';
+import { Copy, Download, FileText, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getServiceArtifact, getServiceLogs } from '@/lib/api-client';
@@ -135,19 +135,6 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({ isOpen, onC
                       <FileText className="mr-2 h-4 w-4" />
                     )}
                     Download build logs
-                  </Button>
-                )}
-                {service.build_log_url && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    asChild
-                  >
-                    <a href={service.build_log_url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      Open in Cloud Console
-                    </a>
                   </Button>
                 )}
                 {service.source_blob && (

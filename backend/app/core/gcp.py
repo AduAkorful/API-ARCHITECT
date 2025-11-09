@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from google.api_core.exceptions import NotFound
 from google.auth.transport.requests import Request
-from google.auth.iam import Signer
+from google.auth import impersonated_credentials
 from google.cloud import firestore, storage
 from google.cloud.devtools import cloudbuild_v1
 
@@ -52,32 +52,39 @@ async def generate_signed_url(destination_blob_name: str, expires_in: int = 3600
 
         expiration = timedelta(seconds=expires_in)
 
-        try:
-            return blob.generate_signed_url(expiration=expiration, version="v4")
-        except Exception as original_error:
-            # Attempt to generate the signed URL via the IAM Credentials API.
+        credentials = storage_client._credentials
+        request = Request()
+        if credentials is not None and not credentials.valid:
+            credentials.refresh(request)
+
+        if credentials and hasattr(credentials, "sign_bytes") and callable(getattr(credentials, "sign_bytes")):
+            signing_credentials = credentials
+        else:
             signer_email = settings.GCP_SIGNER_SERVICE_ACCOUNT_EMAIL
             if not signer_email:
                 raise RuntimeError(
                     "GCP_SIGNER_SERVICE_ACCOUNT_EMAIL must be configured to use IAM-based signing."
-                ) from original_error
+                )
 
-            credentials = storage_client._credentials
-            if credentials is None:
-                raise RuntimeError("Storage client has no credentials available for signing.") from original_error
+            base_credentials = credentials or storage_client._credentials
+            if base_credentials is None:
+                raise RuntimeError("Storage client has no credentials available for signing.")
 
-            request = Request()
-            if not credentials.valid:
-                credentials.refresh(request)
+            if not base_credentials.valid:
+                base_credentials.refresh(request)
 
-            signer = Signer(request, credentials, signer_email)
-
-            return blob.generate_signed_url(
-                expiration=expiration,
-                version="v4",
-                service_account_email=signer_email,
-                signer=signer,
+            signing_credentials = impersonated_credentials.Credentials(
+                source_credentials=base_credentials,
+                target_principal=signer_email,
+                target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                lifetime=300,
             )
+
+        return blob.generate_signed_url(
+            expiration=expiration,
+            version="v4",
+            credentials=signing_credentials,
+        )
 
     return await loop.run_in_executor(None, _sign)
 
