@@ -1,6 +1,8 @@
 import asyncio
 from datetime import datetime, timedelta
 
+from google.auth.transport.requests import Request
+from google.auth.iam import Signer
 from google.cloud import firestore, storage
 from google.cloud.devtools import cloudbuild_v1
 
@@ -47,7 +49,34 @@ async def generate_signed_url(destination_blob_name: str, expires_in: int = 3600
         if not blob.exists():
             raise FileNotFoundError(f"Artifact {destination_blob_name} not found in bucket.")
 
-        return blob.generate_signed_url(expiration=timedelta(seconds=expires_in), version="v4")
+        expiration = timedelta(seconds=expires_in)
+
+        try:
+            return blob.generate_signed_url(expiration=expiration, version="v4")
+        except Exception as original_error:
+            # Attempt to generate the signed URL via the IAM Credentials API.
+            signer_email = settings.GCP_SIGNER_SERVICE_ACCOUNT_EMAIL
+            if not signer_email:
+                raise RuntimeError(
+                    "GCP_SIGNER_SERVICE_ACCOUNT_EMAIL must be configured to use IAM-based signing."
+                ) from original_error
+
+            credentials = storage_client._credentials
+            if credentials is None:
+                raise RuntimeError("Storage client has no credentials available for signing.") from original_error
+
+            request = Request()
+            if not credentials.valid:
+                credentials.refresh(request)
+
+            signer = Signer(request, credentials, signer_email)
+
+            return blob.generate_signed_url(
+                expiration=expiration,
+                version="v4",
+                service_account_email=signer_email,
+                signer=signer,
+            )
 
     return await loop.run_in_executor(None, _sign)
 

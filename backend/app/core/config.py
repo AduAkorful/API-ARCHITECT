@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
+from typing import Optional
 
 env_path = Path(__file__).resolve().parent.parent.parent / '.env'
 
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
     GCP_SOURCE_BUCKET_NAME: str
     FIRESTORE_SERVICES_COLLECTION: str = "services"
     GEMINI_API_KEY: str
+    GCP_SIGNER_SERVICE_ACCOUNT_EMAIL: Optional[str] = None
     # Default CORS origins for local development.
     # In production, this is overridden by the Cloud Run environment variable.
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
