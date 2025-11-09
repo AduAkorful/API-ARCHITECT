@@ -162,7 +162,7 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({ isOpen, onC
                     ) : (
                       <Download className="mr-2 h-4 w-4" />
                     )}
-                    Download source
+                    Download source code
                   </Button>
                 )}
               </div>

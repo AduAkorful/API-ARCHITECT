@@ -58,18 +58,29 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* --- UI POLISH: Add a subtle background pattern --- */
+    position: relative;
+    min-height: 100%;
+    overflow-x: hidden;
     background-color: hsl(var(--background));
-    background-image: radial-gradient(
-      circle at 25px 25px,
-      hsl(var(--secondary) / 0.5) 2%,
-      transparent 0%
-    ), radial-gradient(
-      circle at 75px 75px,
-      hsl(var(--secondary) / 0.5) 2%,
-      transparent 0%
-    );
-    background-size: 100px 100px;
+    background-image:
+      radial-gradient(circle at 20% 15%, hsl(212 85% 25% / 0.2), transparent 55%),
+      radial-gradient(circle at 80% 85%, hsl(218 90% 40% / 0.16), transparent 60%);
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background-image:
+      linear-gradient(hsl(212 77% 57% / 0.09) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(212 77% 57% / 0.09) 1px, transparent 1px),
+      radial-gradient(circle at top left, hsl(210 87% 55% / 0.12), transparent 60%),
+      radial-gradient(circle at bottom right, hsl(200 94% 46% / 0.12), transparent 65%);
+    background-size: 80px 80px, 80px 80px, 100% 100%, 100% 100%;
+    mix-blend-mode: screen;
+    opacity: 0.75;
   }
 }

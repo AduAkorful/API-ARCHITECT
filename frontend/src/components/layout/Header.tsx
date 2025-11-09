@@ -33,13 +33,70 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-sm">
       <div className="container flex h-14 max-w-screen-2xl items-center">
-        <a href="/" className="mr-6 flex items-center space-x-2">
-          {/* A simple, clean SVG logo */}
-          <svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="64" height="64" rx="12" fill="currentColor" className="text-foreground"/>
-            <path d="M23.0322 44L18 19H22.4624L25.4247 36.1458L28.3871 19H32.6183L35.5806 36.1458L38.543 19H43.0054L38.0322 44H33.1505L30.1505 31.875L27.1505 44H23.0322Z" fill="currentColor" className="text-background"/>
+        <a href="/" className="mr-6 flex items-center space-x-3">
+          <svg
+            className="h-9 w-9"
+            viewBox="0 0 64 64"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            role="img"
+            aria-label="API Architect logo"
+          >
+            <defs>
+              <linearGradient id="badge-bg" x1="12" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#1B5FFF" />
+                <stop offset="1" stopColor="#00B0FF" />
+              </linearGradient>
+              <linearGradient id="badge-glow" x1="12" y1="20" x2="44" y2="60" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#FFFFFF" stopOpacity="0.45" />
+                <stop offset="1" stopColor="#FFFFFF" stopOpacity="0.05" />
+              </linearGradient>
+            </defs>
+            <rect width="64" height="64" rx="18" fill="url(#badge-bg)" />
+            <rect
+              x="12"
+              y="12"
+              width="40"
+              height="40"
+              rx="12"
+              fill="none"
+              stroke="rgba(255,255,255,0.35)"
+              strokeWidth="2"
+            />
+            <path
+              d="M20 24H44M20 32H44M24 16V48M40 16V48"
+              stroke="rgba(255,255,255,0.12)"
+              strokeWidth="2"
+            />
+            <path
+              d="M25 43L32 23L39 43"
+              stroke="white"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M28.5 34.5H35.5"
+              stroke="white"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+            <rect
+              x="18"
+              y="18"
+              width="28"
+              height="28"
+              rx="8"
+              fill="url(#badge-glow)"
+              opacity="0.45"
+            />
           </svg>
-          <span className="font-bold">API Architect</span>
+          <div>
+            <span className="block font-semibold leading-tight tracking-tight">API Architect</span>
+            <span className="block text-xs font-medium uppercase tracking-[0.2em] text-sky-300/80">
+              Blueprints for APIs
+            </span>
+          </div>
         </a>
         
         <div className="flex flex-1 items-center justify-end space-x-4">
