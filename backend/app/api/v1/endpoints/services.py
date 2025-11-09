@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Body, Depends, BackgroundTasks
+from fastapi.responses import PlainTextResponse
 from typing import Dict, List
 import os
 import re
@@ -210,3 +211,31 @@ async def get_service_artifact(service_id: str, user: dict = Depends(get_current
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found in storage.")
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate download link: {e}")
+
+
+@router.get("/{service_id}/logs")
+async def get_service_logs(service_id: str, user: dict = Depends(get_current_user)):
+    doc_ref = gcp.db.collection(settings.FIRESTORE_SERVICES_COLLECTION).document(service_id)
+    doc = await doc_ref.get()
+
+    if not doc.exists:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
+
+    data = doc.to_dict()
+    if data.get('user_id') != user['uid']:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied.")
+
+    metadata = ServiceMetadata(**data)
+
+    if not metadata.build_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No build has been triggered for this service.")
+
+    try:
+        log_text, filename = await gcp.fetch_build_logs(metadata.build_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Build logs not found.")
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to fetch build logs: {e}")
+
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return PlainTextResponse(content=log_text, headers=headers)

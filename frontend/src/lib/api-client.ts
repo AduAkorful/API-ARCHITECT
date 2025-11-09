@@ -38,6 +38,20 @@ const getHeaders = async () => {
 
 const baseURL = import.meta.env.VITE_API_BASE_URL;
 
+const parseFilename = (disposition: string | null): string | undefined => {
+  if (!disposition) return undefined;
+  const utf8Match = disposition.match(/filename\*?=UTF-8''([^;]+)/i);
+  if (utf8Match && utf8Match[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1].replace(/["']/g, ''));
+    } catch {
+      return utf8Match[1].replace(/["']/g, '');
+    }
+  }
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  return match ? match[1] : undefined;
+};
+
 export const getServices = async (): Promise<ServiceMetadata[]> => {
   const headers = await getHeaders();
   const response = await fetch(`${baseURL}/services`, { headers });
@@ -74,4 +88,18 @@ export const getServiceArtifact = async (serviceId: string): Promise<{ download_
   });
   if (!response.ok) throw new Error(await response.text());
   return response.json();
+};
+
+export const getServiceLogs = async (serviceId: string): Promise<{ blob: Blob; filename: string }> => {
+  const headers = await getHeaders();
+  const response = await fetch(`${baseURL}/services/${serviceId}/logs`, {
+    method: 'GET',
+    headers,
+  });
+  if (!response.ok) throw new Error(await response.text());
+  const blob = await response.blob();
+  const filename =
+    parseFilename(response.headers.get('Content-Disposition')) ||
+    `build-${serviceId}.log`;
+  return { blob, filename };
 };

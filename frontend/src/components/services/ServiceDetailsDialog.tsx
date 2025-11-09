@@ -8,10 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Copy, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { Copy, Download, ExternalLink, FileText, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getServiceArtifact } from '@/lib/api-client';
+import { getServiceArtifact, getServiceLogs } from '@/lib/api-client';
 
 interface ServiceDetailsDialogProps {
   isOpen: boolean;
@@ -21,6 +21,7 @@ interface ServiceDetailsDialogProps {
 
 const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({ isOpen, onClose, service }) => {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isFetchingLogs, setIsFetchingLogs] = useState(false);
 
   if (!service) return null;
 
@@ -54,6 +55,35 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({ isOpen, onC
     navigator.clipboard.writeText(text);
     toast.success(`${name} copied to clipboard!`);
   }
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadLogs = async () => {
+    if (!service.build_id) {
+      toast.error('Build logs are not available for this service yet.');
+      return;
+    }
+    try {
+      setIsFetchingLogs(true);
+      const { blob, filename } = await getServiceLogs(service.id);
+      downloadBlob(blob, filename);
+      toast.success('Build logs downloaded');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to download build logs';
+      toast.error(message);
+    } finally {
+      setIsFetchingLogs(false);
+    }
+  };
 
   // --- ADDED A CHECK FOR endpoint ---
   // Prevents crash if the spec is somehow malformed
@@ -91,16 +121,32 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({ isOpen, onC
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {service.build_log_url && (
+                {service.build_id && (
                   <Button
                     type="button"
                     variant="outline"
+                    size="sm"
+                    disabled={isFetchingLogs}
+                    onClick={handleDownloadLogs}
+                  >
+                    {isFetchingLogs ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileText className="mr-2 h-4 w-4" />
+                    )}
+                    Download build logs
+                  </Button>
+                )}
+                {service.build_log_url && (
+                  <Button
+                    type="button"
+                    variant="ghost"
                     size="sm"
                     asChild
                   >
                     <a href={service.build_log_url} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="mr-2 h-4 w-4" />
-                      View build logs
+                      Open in Cloud Console
                     </a>
                   </Button>
                 )}

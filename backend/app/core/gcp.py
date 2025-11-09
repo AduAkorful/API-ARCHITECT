@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta
 
+from google.api_core.exceptions import NotFound
 from google.auth.transport.requests import Request
 from google.auth.iam import Signer
 from google.cloud import firestore, storage
@@ -79,6 +80,56 @@ async def generate_signed_url(destination_blob_name: str, expires_in: int = 3600
             )
 
     return await loop.run_in_executor(None, _sign)
+
+
+async def fetch_build_logs(build_id: str) -> tuple[str, str]:
+    """Fetches Cloud Build logs for the given build ID and returns the log text and the filename."""
+    cloudbuild_client = clients["build_client"]
+    build = await cloudbuild_client.get_build(project_id=settings.GCP_PROJECT_ID, id=build_id)
+
+    logs_bucket = build.logs_bucket
+    if not logs_bucket:
+        raise RuntimeError("Cloud Build did not provide a logs bucket for this build.")
+
+    bucket_path = logs_bucket.replace("gs://", "", 1).rstrip("/")
+    if "/" in bucket_path:
+        bucket_name, prefix = bucket_path.split("/", 1)
+    else:
+        bucket_name, prefix = bucket_path, ""
+
+    prefix = prefix.strip("/")
+
+    def with_prefix(name: str) -> str:
+        return f"{prefix}/{name}" if prefix else name
+
+    object_candidates = [
+        with_prefix(f"log-{build_id}.txt"),
+        with_prefix(f"{build_id}.log"),
+        with_prefix(f"{build_id}.txt"),
+        with_prefix(f"builds/{build_id}.log"),
+    ]
+    # Remove duplicates while preserving order
+    object_candidates = list(dict.fromkeys(object_candidates))
+
+    loop = asyncio.get_event_loop()
+
+    def _download() -> tuple[str, str]:
+        bucket = storage_client.bucket(bucket_name)
+        last_error: Exception | None = None
+        for object_name in object_candidates:
+            blob = bucket.blob(object_name)
+            try:
+                content = blob.download_as_text()
+                filename = object_name.split("/")[-1]
+                return content, filename
+            except NotFound as err:
+                last_error = err
+                continue
+        raise FileNotFoundError(
+            f"Build logs not found in bucket {logs_bucket} for build {build_id}."
+        ) from last_error
+
+    return await loop.run_in_executor(None, _download)
 
 
 async def trigger_cloud_build(gcs_source_uri: str, service_name: str) -> str:
