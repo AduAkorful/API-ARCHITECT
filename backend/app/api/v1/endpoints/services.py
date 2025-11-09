@@ -3,6 +3,7 @@ from typing import Dict, List
 import os
 import re
 import asyncio
+from datetime import datetime
 from app.core import gcp, generation, ai
 from app.core.config import settings
 from app.models.service import ServiceMetadata, ServiceStatus
@@ -12,6 +13,7 @@ from app.core.auth import get_current_user
 from google.api_core.exceptions import NotFound
 
 router = APIRouter()
+
 
 async def run_generation_pipeline(metadata: ServiceMetadata):
     """
@@ -45,6 +47,7 @@ async def run_generation_pipeline(metadata: ServiceMetadata):
         blob_name = f"source/{metadata.id}/{os.path.basename(zip_path)}"
         gcs_uri = await gcp.upload_source_to_gcs(zip_path, blob_name)
         print(f"[PIPELINE] Step 3 complete: Uploaded to {gcs_uri}")
+        metadata.source_blob = blob_name
         
         # 4. Trigger Cloud Build
         print(f"[PIPELINE] Step 4: Triggering Cloud Build for {service_name}")
@@ -52,6 +55,7 @@ async def run_generation_pipeline(metadata: ServiceMetadata):
         metadata.build_id = build_id
         metadata.status = ServiceStatus.BUILDING
         metadata.build_log_url = f"https://console.cloud.google.com/cloud-build/builds/{build_id}?project={settings.GCP_PROJECT_ID}"
+        metadata.updated_at = datetime.utcnow()
         
         print(f"[PIPELINE] Updating Firestore with build ID: {build_id}")
         await doc_ref.set(metadata.model_dump())
@@ -64,6 +68,7 @@ async def run_generation_pipeline(metadata: ServiceMetadata):
         traceback.print_exc()
         metadata.status = ServiceStatus.FAILED
         metadata.error_message = str(e)
+        metadata.updated_at = datetime.utcnow()
         await doc_ref.set(metadata.model_dump())
 
 
@@ -123,9 +128,11 @@ async def list_services(user: dict = Depends(get_current_user)):
                     service_path = run_client.service_path(settings.GCP_PROJECT_ID, settings.GCP_REGION, service.service_name)
                     run_service = await run_client.get_service(name=service_path)
                     service.deployed_url = run_service.uri
+                    service.updated_at = datetime.utcnow()
                     await doc_ref.set(service.model_dump())
                 elif build_info.status in [Build.Status.FAILURE, Build.Status.CANCELLED, Build.Status.EXPIRED]:
                     service.status = ServiceStatus.FAILED
+                    service.updated_at = datetime.utcnow()
                     await doc_ref.set(service.model_dump())
             except Exception as e:
                 print(f"Error checking build status for {service.id}: {e}")
@@ -177,3 +184,29 @@ async def delete_service(service_id: str, user: dict = Depends(get_current_user)
     except Exception as e:
         # For any other unexpected error, return a generic 500
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error occurred: {e}")
+
+
+@router.get("/{service_id}/artifact")
+async def get_service_artifact(service_id: str, user: dict = Depends(get_current_user)):
+    doc_ref = gcp.db.collection(settings.FIRESTORE_SERVICES_COLLECTION).document(service_id)
+    doc = await doc_ref.get()
+
+    if not doc.exists:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
+
+    data = doc.to_dict()
+    if data.get('user_id') != user['uid']:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied.")
+
+    metadata = ServiceMetadata(**data)
+
+    if not metadata.source_blob:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No downloadable artifact is available for this service.")
+
+    try:
+        signed_url = await gcp.generate_signed_url(metadata.source_blob)
+        return {"download_url": signed_url}
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found in storage.")
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate download link: {e}")

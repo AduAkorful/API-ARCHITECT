@@ -26,6 +26,7 @@ export interface ServiceMetadata {
   status: ServiceStatus;
   deployed_url?: string;
   build_log_url?: string;
+  source_blob?: string;
   created_at: string; // ISO 8601 date string
   updated_at: string; // ISO 8601 date string
   spec?: ServiceSpec;

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ServiceMetadata } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,9 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Copy } from 'lucide-react';
+import { Copy, Download, ExternalLink, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getServiceArtifact } from '@/lib/api-client';
 
 interface ServiceDetailsDialogProps {
   isOpen: boolean;
@@ -18,6 +20,8 @@ interface ServiceDetailsDialogProps {
 }
 
 const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({ isOpen, onClose, service }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
+
   if (!service) return null;
 
   // Safely access nested values — spec or endpoint may be missing.
@@ -76,6 +80,67 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({ isOpen, onC
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto">
+          <div className="grid gap-3 rounded-md border border-border/60 bg-secondary/40 p-4">
+            <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <h4 className="font-semibold text-sm uppercase text-muted-foreground tracking-wide">Deployment resources</h4>
+                {service.build_log_url && (
+                  <p className="text-xs text-muted-foreground">
+                    Track the Cloud Build pipeline or download the generated source package.
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {service.build_log_url && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    asChild
+                  >
+                    <a href={service.build_log_url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      View build logs
+                    </a>
+                  </Button>
+                )}
+                {service.source_blob && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={isDownloading}
+                    onClick={async () => {
+                      try {
+                        setIsDownloading(true);
+                        const { download_url } = await getServiceArtifact(service.id);
+                        window.open(download_url, '_blank', 'noopener,noreferrer');
+                        toast.success('Download started');
+                      } catch (err) {
+                        const message = err instanceof Error ? err.message : 'Unable to download artifact';
+                        toast.error(message);
+                      } finally {
+                        setIsDownloading(false);
+                      }
+                    }}
+                  >
+                    {isDownloading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    Download source
+                  </Button>
+                )}
+              </div>
+            </div>
+            {service.source_blob && (
+              <p className="text-xs font-mono text-muted-foreground">
+                {service.source_blob.split('/').pop()}
+              </p>
+            )}
+          </div>
+
           <div className="space-y-2">
             <h4 className="font-semibold">Endpoint</h4>
             <div className="flex items-center justify-between p-3 rounded-md bg-secondary">

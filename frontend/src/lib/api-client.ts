@@ -65,3 +65,13 @@ export const deleteService = async (serviceId: string): Promise<void> => {
   if (!response.ok) throw new Error(await response.text());
   // Backend returns 204 No Content, so no need to parse JSON
 };
+
+export const getServiceArtifact = async (serviceId: string): Promise<{ download_url: string }> => {
+  const headers = await getHeaders();
+  const response = await fetch(`${baseURL}/services/${serviceId}/artifact`, {
+    method: 'GET',
+    headers,
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+};
