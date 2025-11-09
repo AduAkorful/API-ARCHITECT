@@ -91,12 +91,7 @@ const Header = () => {
               opacity="0.45"
             />
           </svg>
-          <div>
-            <span className="block font-semibold leading-tight tracking-tight">API Architect</span>
-            <span className="block text-xs font-medium uppercase tracking-[0.2em] text-sky-300/80">
-              Blueprints for APIs
-            </span>
-          </div>
+          <span className="block font-semibold leading-tight tracking-tight">API Architect</span>
         </a>
         
         <div className="flex flex-1 items-center justify-end space-x-4">
