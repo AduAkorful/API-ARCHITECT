@@ -6,6 +6,7 @@ from google.auth.transport.requests import Request
 from google.auth import impersonated_credentials
 from google.cloud import firestore, storage
 from google.cloud.devtools import cloudbuild_v1
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.core.config import settings
 from app.models.service import ServiceMetadata
@@ -18,6 +19,7 @@ storage_client = storage.Client(project=settings.GCP_PROJECT_ID)
 # Note: cloudbuild_client is initialized in main.py's lifespan and accessed via clients dict
 
 
+@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=1, max=10))
 async def save_service_metadata(metadata: ServiceMetadata):
     """Saves or updates service metadata in Firestore."""
     metadata.updated_at = datetime.utcnow()
@@ -25,6 +27,7 @@ async def save_service_metadata(metadata: ServiceMetadata):
     await doc_ref.set(metadata.model_dump())
 
 
+@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=1, max=10))
 async def upload_source_to_gcs(source_zip_path: str, destination_blob_name: str) -> str:
     """Uploads the zipped source code to Google Cloud Storage asynchronously."""
     # Run the synchronous storage operation in a thread pool to avoid blocking
@@ -139,6 +142,7 @@ async def fetch_build_logs(build_id: str) -> tuple[str, str]:
     return await loop.run_in_executor(None, _download)
 
 
+@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=1, max=10))
 async def trigger_cloud_build(gcs_source_uri: str, service_name: str) -> str:
     """Triggers a Cloud Build job to build and deploy the service asynchronously."""
     cloudbuild_client = clients["build_client"]

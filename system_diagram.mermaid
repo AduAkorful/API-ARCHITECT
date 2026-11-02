@@ -1,0 +1,52 @@
+sequenceDiagram
+    participant User
+    participant Frontend as React Frontend
+    participant Backend as FastAPI Backend
+    participant Gemini as Gemini API
+    participant Firestore
+    participant GCS as Cloud Storage
+    participant CloudBuild as Cloud Build
+    participant CloudRun as Cloud Run
+
+    User->>Frontend: Enter prompt & click "Generate"
+    Frontend->>Backend: POST /api/v1/services/generate
+    activate Backend
+
+    Backend->>Firestore: Create Service Metadata (PENDING)
+    Backend->>Backend: Start Background Task
+    Backend-->>Frontend: 202 Accepted (Service Metadata)
+    deactivate Backend
+
+    par Background Generation Pipeline
+        Backend->>Gemini: Generate JSON Spec
+        Gemini-->>Backend: JSON Spec
+        Backend->>Backend: Validate Spec (Pydantic)
+        Backend->>Backend: Generate Flask Code (Jinja2)
+        Backend->>GCS: Upload Source Zip
+        Backend->>CloudBuild: Trigger Build
+        CloudBuild-->>Backend: Build ID
+        Backend->>Firestore: Update Status (BUILDING)
+    and Cloud Build Process
+        CloudBuild->>GCS: Fetch Source
+        CloudBuild->>CloudBuild: Build Docker Image
+        CloudBuild->>CloudRun: Deploy Service
+    and Status Polling
+        loop Every X seconds
+            Frontend->>Backend: GET /api/v1/services/
+            activate Backend
+            Backend->>Firestore: Fetch Services
+            Backend->>CloudBuild: Check Build Status
+
+            alt Build Success
+                Backend->>CloudRun: Get Service URL
+                Backend->>Firestore: Update Status (DEPLOYED) & URL
+            else Build Failed
+                Backend->>Firestore: Update Status (FAILED)
+            end
+
+            Backend-->>Frontend: List of Services (with status)
+            deactivate Backend
+        end
+    end
+
+    Frontend->>User: Display "Deployed" & Live URL

@@ -1,6 +1,7 @@
 import google.generativeai as genai
 import json
 from app.core.config import settings
+from app.models.gemini_spec import GeminiSpec
 
 # Configure the Gemini API client
 genai.configure(api_key=settings.GEMINI_API_KEY)
@@ -46,8 +47,12 @@ def generate_spec_from_prompt(prompt: str) -> dict:
         if not cleaned_response:
             raise ValueError("AI model returned an empty response.")
 
-        spec = json.loads(cleaned_response)
-        return spec
+        spec_dict = json.loads(cleaned_response)
+
+        # Validate the spec using Pydantic
+        spec_model = GeminiSpec(**spec_dict)
+        return spec_model.model_dump()
+
     except json.JSONDecodeError:
         raise ValueError(f"Failed to decode JSON from the AI model's response. Raw response: '{response.text}'")
     except Exception as e:
